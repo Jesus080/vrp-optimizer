@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizador de Rutas VRP</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-route"></i> Optimizador de Rutas</h1>
+            <p>Sistema para optimización de rutas de entrega con algoritmo VRP</p>
+        </header>
+
+        <main>
+            <div class="card form-card">
+                <form id="vrp-form" action="/optimizar" method="post">
+                    <div class="form-section">
+                        <h2><i class="fas fa-warehouse"></i> Ubicación del Almacén</h2>
+                        <div class="form-group">
+                            <label for="almacen">Seleccione la ciudad donde está el almacén:</label>
+                            <select id="almacen" name="almacen" required>
+                                <option value="" disabled selected>-- Seleccione una ciudad --</option>
+                                {% for ciudad in ciudades %}
+                                <option value="{{ ciudad }}">{{ ciudad }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2><i class="fas fa-boxes"></i> Pedidos por Ciudad</h2>
+                        <p>Ingrese la cantidad de pedidos para cada ciudad:</p>
+                        
+                        <div class="pedidos-grid">
+                            {% for ciudad in ciudades %}
+                            <div class="pedido-item">
+                                <label for="pedido_{{ ciudad }}">{{ ciudad }}:</label>
+                                <input type="number" id="pedido_{{ ciudad }}" name="pedido_{{ ciudad }}" 
+                                       min="0" value="0" class="pedido-input">
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h2><i class="fas fa-truck"></i> Capacidad del Vehículo</h2>
+                        <div class="form-group">
+                            <label for="max_carga">Capacidad máxima del vehículo (unidades):</label>
+                            <input type="number" id="max_carga" name="max_carga" min="1" value="10" required>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-calculator"></i> Calcular Rutas
+                        </button>
+                        <button type="reset" class="btn-secondary">
+                            <i class="fas fa-redo"></i> Limpiar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </main>
+
+        <footer>
+            
+        </footer>
+    </div>
+</body>
+</html>

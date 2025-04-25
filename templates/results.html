@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados - Optimizador de Rutas VRP</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-route"></i> Resultados de Optimización</h1>
+            <p>Rutas optimizadas desde el almacén en {{ data.almacen }}</p>
+        </header>
+
+        <main>
+            <div class="card map-card">
+                <h2><i class="fas fa-map-marked-alt"></i> Visualización de Rutas</h2>
+                <div id="map"></div>
+            </div>
+
+            <div class="card results-card">
+                <h2><i class="fas fa-list-alt"></i> Detalle de Rutas</h2>
+                
+                {% if data.rutas|length > 0 %}
+                    <div class="routes-summary">
+                        <p><strong>Total de rutas generadas:</strong> {{ data.rutas|length }}</p>
+                    </div>
+                    
+                    <div class="routes-list">
+                        {% for resultado in data.rutas %}
+                            <div class="route-item" data-route-id="{{ loop.index }}">
+                                <h3>Ruta {{ loop.index }}</h3>
+                                <div class="route-path">
+                                    <span class="warehouse">{{ data.almacen }}</span>
+                                    {% for ciudad in resultado.ruta %}
+                                        <span class="arrow">→</span>
+                                        <span class="city">{{ ciudad }}</span>
+                                    {% endfor %}
+                                    <span class="arrow">→</span>
+                                    <span class="warehouse">{{ data.almacen }}</span>
+                                </div>
+                                <div class="route-details">
+                                    <div class="detail-item">
+                                        <i class="fas fa-road"></i>
+                                        <span>Distancia total: {{ resultado.distancia_total }} km</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-gas-pump"></i>
+                                        <span>Consumo de gasolina: {{ resultado.consumo_gasolina }} litros</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span>Tiempo de operación: {{ resultado.tiempo_operacion }} horas</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <i class="fas fa-weight"></i>
+                                        <span>Carga total: {{ resultado.carga_total }} unidades</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-routes">
+                        <p>No se generaron rutas. Revise los parámetros de entrada.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn-primary">
+                    <i class="fas fa-arrow-left"></i> Volver al Inicio
+                </a>
+                <button id="btn-export" class="btn-secondary">
+                    <i class="fas fa-file-export"></i> Exportar Resultados
+                </button>
+            </div>
+        </main>
+
+        <footer>
+
+        </footer>
+    </div>
+
+    <script>
+        // Datos para el mapa
+        const data = {{ data|tojson }};
+        
+        // Inicializar el mapa
+        const map = L.map('map').setView([22.5, -102], 5);
+        
+        // Añadir capa de OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Definir paleta de colores para las rutas
+        const colors = [
+            '#FF5733', '#33FF57', '#3357FF', '#F3FF33', '#FF33F3',
+            '#33FFF3', '#FF8C33', '#8C33FF', '#FF3380', '#33FF8C'
+        ];
+        
+        // Añadir marcador del almacén
+        const almacenIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+        
+        // Convertir coordenadas del almacén (la API usa lat, lng en orden inverso a Leaflet)
+        const almacenLatLng = [data.almacen_coords[0], data.almacen_coords[1]];
+        const almacenMarker = L.marker(almacenLatLng, {icon: almacenIcon})
+            .addTo(map)
+            .bindPopup(`<strong>Almacén: ${data.almacen}</strong>`);
+        
+        // Añadir marcadores de ciudades
+        const cityIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+        
+        // Añadir marcadores para todas las ciudades
+        for (const [ciudad, coords] of Object.entries(data.ciudades_coords)) {
+            if (ciudad !== data.almacen) {
+                L.marker([coords[0], coords[1]], {icon: cityIcon})
+                    .addTo(map)
+                    .bindPopup(`<strong>${ciudad}</strong>`);
+            }
+        }
+        
+        // Dibujar rutas
+        data.rutas.forEach((resultado, index) => {
+            const color = colors[index % colors.length];
+            const ruta = resultado.ruta;
+            
+            if (ruta.length > 0) {
+                // Crear puntos de la ruta
+                const routePoints = [almacenLatLng];
+                
+                ruta.forEach(ciudad => {
+                    const coords = data.ciudades_coords[ciudad];
+                    routePoints.push([coords[0], coords[1]]);
+                });
+                
+                // Cerrar la ruta volviendo al almacén
+                routePoints.push(almacenLatLng);
+                
+                // Dibujar línea
+                const polyline = L.polyline(routePoints, {
+                    color: color,
+                    weight: 3,
+                    opacity: 0.8
+                }).addTo(map);
+                
+                // Añadir popup a la línea
+                polyline.bindPopup(`<strong>Ruta ${index + 1}</strong><br>
+                                   Distancia: ${resultado.distancia_total} km<br>
+                                   Tiempo: ${resultado.tiempo_operacion} horas`);
+                
+                // Añadir flechas de dirección
+                const arrowHeads = L.polylineDecorator(polyline, {
+                    patterns: [
+                        {offset: '5%', repeat: '15%', symbol: L.Symbol.arrowHead({
+                            pixelSize: 10, polygon: false, pathOptions: {stroke: true, color: color, weight: 3}
+                        })}
+                    ]
+                }).addTo(map);
+            }
+        });
+        
+        // Ajustar el mapa para que muestre todas las rutas
+        if (data.rutas.length > 0) {
+            const bounds = [];
+            bounds.push(almacenLatLng);
+            
+            data.rutas.forEach(resultado => {
+                resultado.ruta.forEach(ciudad => {
+                    const coords = data.ciudades_coords[ciudad];
+                    bounds.push([coords[0], coords[1]]);
+                });
+            });
+            
+            map.fitBounds(L.latLngBounds(bounds), {padding: [50, 50]});
+        }
+        
+        // Exportar resultados
+        document.getElementById('btn-export').addEventListener('click', function() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Encabezados
+            csvContent += "Ruta,Ciudades,Distancia Total (km),Consumo Gasolina (L),Tiempo Operación (h),Carga Total\n";
+            
+            // Datos de cada ruta
+            data.rutas.forEach((resultado, index) => {
+                const rutaNum = index + 1;
+                const ciudades = `${data.almacen} -> ${resultado.ruta.join(' -> ')} -> ${data.almacen}`;
+                
+                csvContent += `${rutaNum},"${ciudades}",${resultado.distancia_total},${resultado.consumo_gasolina},${resultado.tiempo_operacion},${resultado.carga_total}\n`;
+            });
+            
+            // Crear enlace de descarga
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "rutas_optimizadas.csv");
+            document.body.appendChild(link);
+            
+            // Descargar archivo
+            link.click();
+        });
+    </script>
+</body>
+</html>
